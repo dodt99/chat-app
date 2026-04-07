@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { verifyToken } from '../utils/jwt';
 import { registerStatusHandlers } from './handlers/statusHandlers';
 import { registerMessageHandlers } from './handlers/messageHandlers';
+import { registerTypingHandlers } from './handlers/typingHandlers';
 
 dotenv.config();
 
@@ -31,11 +32,11 @@ export function setupSocket(httpServer: http.Server): Server {
 
   io.on('connection', (socket) => {
     const userId: string = socket.data.userId;
-    // const username: string = socket.data.username; // used by typing handlers (Task 7)
+    const username: string = socket.data.username;
 
     registerStatusHandlers(io, socket, userId);
     registerMessageHandlers(io, socket, userId);
-    // registerTypingHandlers(io, socket, username);  // Task 7
+    registerTypingHandlers(socket, username);
     // registerConversationHandlers(io, socket, userId); // Task 8
   });
 
