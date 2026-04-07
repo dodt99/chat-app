@@ -134,6 +134,8 @@ export function registerConversationHandlers(io: Server, socket: Socket, userId:
 
     await memberRepo.save(memberRepo.create({ conversationId, userId: targetId }));
 
+    await joinRoomForUser(io, targetId, `conversation:${conversationId}`);
+
     const user = await AppDataSource.getRepository(User).findOneOrFail({ where: { id: targetId } });
     io.to(`conversation:${conversationId}`).emit('conversation:member_added', {
       conversationId,
