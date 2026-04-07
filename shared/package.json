@@ -1,8 +1,8 @@
 {
   "name": "@chat-app/shared",
   "version": "1.0.0",
-  "main": "dist/src/types.js",
-  "types": "dist/src/types.d.ts",
+  "main": "dist/types.js",
+  "types": "dist/types.d.ts",
   "scripts": {
     "build": "tsc"
   },
