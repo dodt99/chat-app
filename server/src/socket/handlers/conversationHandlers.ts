@@ -12,6 +12,7 @@ import {
   ConversationSummary,
   UserPublic,
 } from '@chat-app/shared';
+import { getSocketId } from '../onlineUsers';
 
 function toUserPublic(user: User): UserPublic {
   return {
@@ -39,6 +40,15 @@ async function buildConversationSummary(conversation: Conversation): Promise<Con
     members: users.map(toUserPublic),
     lastMessage: null,
   };
+}
+
+async function joinRoomForUser(io: Server, targetUserId: string, roomName: string): Promise<void> {
+  const socketId = getSocketId(targetUserId);
+  if (!socketId) return; // user is offline, they'll join when they reconnect via statusHandlers
+  const targetSocket = io.sockets.sockets.get(socketId);
+  if (targetSocket) {
+    await targetSocket.join(roomName);
+  }
 }
 
 export function registerConversationHandlers(io: Server, socket: Socket, userId: string): void {
@@ -78,14 +88,12 @@ export function registerConversationHandlers(io: Server, socket: Socket, userId:
     await memberRepo.save([m1, m2]);
 
     await socket.join(`conversation:${conversation.id}`);
+    await joinRoomForUser(io, targetUserId, `conversation:${conversation.id}`);
 
     const summary = await buildConversationSummary(conversation);
 
-    // Emit to current user
-    socket.emit('conversation:new', summary);
-
-    // Emit to target if they are in the room
-    socket.to(`conversation:${conversation.id}`).emit('conversation:new', summary);
+    // Emit to all members in the room (both creator and target)
+    io.to(`conversation:${conversation.id}`).emit('conversation:new', summary);
   });
 
   // Create a group conversation
@@ -103,6 +111,11 @@ export function registerConversationHandlers(io: Server, socket: Socket, userId:
     await memberRepo.save(members);
 
     await socket.join(`conversation:${conversation.id}`);
+    for (const uid of allMemberIds) {
+      if (uid !== userId) {
+        await joinRoomForUser(io, uid, `conversation:${conversation.id}`);
+      }
+    }
 
     const summary = await buildConversationSummary(conversation);
     io.to(`conversation:${conversation.id}`).emit('conversation:new', summary);

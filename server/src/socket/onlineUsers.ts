@@ -16,3 +16,7 @@ export function isOnline(userId: string): boolean {
 export function getOnlineUserIds(): string[] {
   return Array.from(onlineUsers.keys());
 }
+
+export function getSocketId(userId: string): string | undefined {
+  return onlineUsers.get(userId);
+}
