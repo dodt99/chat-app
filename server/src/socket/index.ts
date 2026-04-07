@@ -5,6 +5,7 @@ import { verifyToken } from '../utils/jwt';
 import { registerStatusHandlers } from './handlers/statusHandlers';
 import { registerMessageHandlers } from './handlers/messageHandlers';
 import { registerTypingHandlers } from './handlers/typingHandlers';
+import { registerConversationHandlers } from './handlers/conversationHandlers';
 
 dotenv.config();
 
@@ -37,7 +38,7 @@ export function setupSocket(httpServer: http.Server): Server {
     registerStatusHandlers(io, socket, userId);
     registerMessageHandlers(io, socket, userId);
     registerTypingHandlers(socket, username);
-    // registerConversationHandlers(io, socket, userId); // Task 8
+    registerConversationHandlers(io, socket, userId);
   });
 
   return io;
