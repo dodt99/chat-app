@@ -1,5 +1,10 @@
 import { Server } from 'socket.io';
 import http from 'http';
+import dotenv from 'dotenv';
+import { verifyToken } from '../utils/jwt';
+import { registerStatusHandlers } from './handlers/statusHandlers';
+
+dotenv.config();
 
 export function setupSocket(httpServer: http.Server): Server {
   const io = new Server(httpServer, {
@@ -9,11 +14,28 @@ export function setupSocket(httpServer: http.Server): Server {
     },
   });
 
+  // JWT auth middleware — runs before any event
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token as string | undefined;
+    if (!token) return next(new Error('Authentication required'));
+    try {
+      const payload = verifyToken(token);
+      socket.data.userId = payload.userId;
+      socket.data.username = payload.username;
+      next();
+    } catch {
+      next(new Error('Invalid token'));
+    }
+  });
+
   io.on('connection', (socket) => {
-    console.log('Socket connected:', socket.id);
-    socket.on('disconnect', () => {
-      console.log('Socket disconnected:', socket.id);
-    });
+    const userId: string = socket.data.userId;
+    // const username: string = socket.data.username; // used by typing handlers (Task 7)
+
+    registerStatusHandlers(io, socket, userId);
+    // registerMessageHandlers(io, socket, userId);   // Task 6
+    // registerTypingHandlers(io, socket, username);  // Task 7
+    // registerConversationHandlers(io, socket, userId); // Task 8
   });
 
   return io;
