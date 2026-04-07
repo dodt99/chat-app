@@ -20,7 +20,9 @@ export function registerStatusHandlers(io: Server, socket: Socket, userId: strin
     // Broadcast online status to all connected clients
     const payload: UserStatusPayload = { userId, isOnline: true, lastSeen: new Date() };
     socket.broadcast.emit('user:status', payload);
-  })();
+  })().catch((err: unknown) => {
+    console.error(`[socket] Failed to initialize rooms for user ${userId}:`, err);
+  });
 
   socket.on('disconnect', async () => {
     removeOnlineUser(userId);
