@@ -50,6 +50,10 @@ authRouter.post('/register', async (req, res) => {
 
 authRouter.post('/login', async (req, res) => {
   const { email, password } = req.body;
+  if (!email || !password) {
+    res.status(400).json({ error: 'email and password are required' });
+    return;
+  }
   try {
     const user = await userRepo().findOne({ where: { email } });
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
