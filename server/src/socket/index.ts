@@ -3,6 +3,7 @@ import http from 'http';
 import dotenv from 'dotenv';
 import { verifyToken } from '../utils/jwt';
 import { registerStatusHandlers } from './handlers/statusHandlers';
+import { registerMessageHandlers } from './handlers/messageHandlers';
 
 dotenv.config();
 
@@ -33,7 +34,7 @@ export function setupSocket(httpServer: http.Server): Server {
     // const username: string = socket.data.username; // used by typing handlers (Task 7)
 
     registerStatusHandlers(io, socket, userId);
-    // registerMessageHandlers(io, socket, userId);   // Task 6
+    registerMessageHandlers(io, socket, userId);
     // registerTypingHandlers(io, socket, username);  // Task 7
     // registerConversationHandlers(io, socket, userId); // Task 8
   });
