@@ -9,7 +9,13 @@
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
-    "build": "npm run build --workspace=shared && npm run build --workspace=server && npm run build --workspace=client"
+    "build": "npm run build --workspace=shared && npm run build --workspace=server && npm run build --workspace=client",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f mysql",
+    "docker:restart": "docker-compose restart mysql",
+    "start": "npm run docker:up && npm run dev",
+    "stop": "npm run docker:down"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"
