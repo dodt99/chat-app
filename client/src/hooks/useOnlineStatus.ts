@@ -9,6 +9,11 @@ export function useOnlineStatus() {
   useEffect(() => {
     if (!socket) return;
 
+    // Fetch current online users on connect
+    socket.emit('users:online', (userIds: string[]) => {
+      setOnlineStatus(new Map(userIds.map((id) => [id, true])));
+    });
+
     function onUserStatus({ userId, isOnline }: UserStatusPayload) {
       setOnlineStatus((prev) => new Map(prev).set(userId, isOnline));
     }

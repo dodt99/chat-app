@@ -2,7 +2,7 @@ import { Server, Socket } from 'socket.io';
 import { AppDataSource } from '../../data-source';
 import { User } from '../../entities/User';
 import { ConversationMember } from '../../entities/ConversationMember';
-import { addOnlineUser, removeOnlineUser } from '../onlineUsers';
+import { addOnlineUser, removeOnlineUser, getOnlineUserIds } from '../onlineUsers';
 import { UserStatusPayload } from '@chat-app/shared';
 
 export function registerStatusHandlers(io: Server, socket: Socket, userId: string): void {
@@ -22,6 +22,11 @@ export function registerStatusHandlers(io: Server, socket: Socket, userId: strin
     socket.broadcast.emit('user:status', payload);
   })().catch((err: unknown) => {
     console.error(`[socket] Failed to initialize rooms for user ${userId}:`, err);
+  });
+
+  // Return current online user IDs
+  socket.on('users:online', (callback?: (userIds: string[]) => void) => {
+    if (callback) callback(getOnlineUserIds());
   });
 
   socket.on('disconnect', async () => {
