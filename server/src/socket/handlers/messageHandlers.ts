@@ -49,6 +49,27 @@ export function registerMessageHandlers(io: Server, socket: Socket, userId: stri
     await socket.join(`conversation:${conversationId}`);
   });
 
+  // Fetch message history for a conversation
+  socket.on('message:history', async ({ conversationId }: JoinConversationPayload, callback?: (messages: MessagePayload[]) => void) => {
+    const isMember = await AppDataSource.getRepository(ConversationMember).findOne({
+      where: { conversationId, userId },
+    });
+    if (!isMember) {
+      if (callback) callback([]);
+      return;
+    }
+
+    const msgRepo = AppDataSource.getRepository(Message);
+    const messages = await msgRepo.find({
+      where: { conversationId },
+      order: { createdAt: 'ASC' },
+      take: 100,
+    });
+
+    const payloads = await Promise.all(messages.map(buildMessagePayload));
+    if (callback) callback(payloads);
+  });
+
   // Send a message
   socket.on('message:send', async ({ conversationId, content }: SendMessagePayload) => {
     const isMember = await AppDataSource.getRepository(ConversationMember).findOne({

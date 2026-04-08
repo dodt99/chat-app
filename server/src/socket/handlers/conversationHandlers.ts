@@ -4,12 +4,15 @@ import { AppDataSource } from '../../data-source';
 import { Conversation } from '../../entities/Conversation';
 import { ConversationMember } from '../../entities/ConversationMember';
 import { User } from '../../entities/User';
+import { Message } from '../../entities/Message';
+import { MessageStatus } from '../../entities/MessageStatus';
 import {
   CreateDMPayload,
   CreateGroupPayload,
   AddMemberPayload,
   RemoveMemberPayload,
   ConversationSummary,
+  MessagePayload,
   UserPublic,
 } from '@chat-app/shared';
 import { getSocketId } from '../onlineUsers';
@@ -24,12 +27,39 @@ function toUserPublic(user: User): UserPublic {
   };
 }
 
+async function buildLastMessage(conversationId: string): Promise<MessagePayload | null> {
+  const msgRepo = AppDataSource.getRepository(Message);
+  const userRepo = AppDataSource.getRepository(User);
+  const statusRepo = AppDataSource.getRepository(MessageStatus);
+
+  const msg = await msgRepo.findOne({
+    where: { conversationId },
+    order: { createdAt: 'DESC' },
+  });
+  if (!msg) return null;
+
+  const sender = await userRepo.findOneOrFail({ where: { id: msg.senderId } });
+  const statuses = await statusRepo.find({ where: { messageId: msg.id } });
+
+  return {
+    id: msg.id,
+    content: msg.content,
+    conversationId: msg.conversationId,
+    sender: toUserPublic(sender),
+    isEdited: msg.isEdited,
+    deletedAt: msg.deletedAt,
+    createdAt: msg.createdAt,
+    statuses: statuses.map((s) => ({ userId: s.userId, status: s.status })),
+  };
+}
+
 async function buildConversationSummary(conversation: Conversation): Promise<ConversationSummary> {
   const memberRepo = AppDataSource.getRepository(ConversationMember);
   const userRepo = AppDataSource.getRepository(User);
 
   const memberships = await memberRepo.find({ where: { conversationId: conversation.id } });
   const users = await userRepo.find({ where: { id: In(memberships.map((m) => m.userId)) } });
+  const lastMessage = await buildLastMessage(conversation.id);
 
   return {
     id: conversation.id,
@@ -38,7 +68,7 @@ async function buildConversationSummary(conversation: Conversation): Promise<Con
     createdBy: conversation.createdBy,
     createdAt: conversation.createdAt,
     members: users.map(toUserPublic),
-    lastMessage: null,
+    lastMessage,
   };
 }
 
@@ -52,6 +82,50 @@ async function joinRoomForUser(io: Server, targetUserId: string, roomName: strin
 }
 
 export function registerConversationHandlers(io: Server, socket: Socket, userId: string): void {
+  // Fetch all conversations for the current user
+  socket.on('conversation:list', async (callback?: (conversations: ConversationSummary[]) => void) => {
+    const memberRepo = AppDataSource.getRepository(ConversationMember);
+    const convRepo = AppDataSource.getRepository(Conversation);
+
+    const memberships = await memberRepo.find({ where: { userId } });
+    const convIds = memberships.map((m) => m.conversationId);
+    if (convIds.length === 0) {
+      if (callback) callback([]);
+      return;
+    }
+
+    const conversations = await convRepo.find({
+      where: { id: In(convIds) },
+      order: { createdAt: 'DESC' },
+    });
+
+    const summaries = await Promise.all(conversations.map(buildConversationSummary));
+
+    // Sort by last message date (most recent first), falling back to createdAt
+    summaries.sort((a, b) => {
+      const aTime = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.createdAt).getTime();
+      const bTime = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.createdAt).getTime();
+      return bTime - aTime;
+    });
+
+    if (callback) callback(summaries);
+  });
+
+  // Search users by username (excludes current user)
+  socket.on('users:search', async ({ query }: { query: string }, callback?: (users: UserPublic[]) => void) => {
+    const userRepo = AppDataSource.getRepository(User);
+    const users = await userRepo
+      .createQueryBuilder('user')
+      .where('user.id != :userId', { userId })
+      .andWhere('user.username LIKE :query', { query: `%${query}%` })
+      .orderBy('user.username', 'ASC')
+      .limit(20)
+      .getMany();
+
+    const result = users.map(toUserPublic);
+    if (callback) callback(result);
+  });
+
   // Create or retrieve a DM conversation between current user and target
   socket.on('conversation:create_dm', async ({ targetUserId }: CreateDMPayload) => {
     const memberRepo = AppDataSource.getRepository(ConversationMember);

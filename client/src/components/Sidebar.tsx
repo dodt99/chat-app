@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useSocket } from '@/context/SocketContext';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { OnlineDot } from './OnlineDot';
+import { NewConversationModal } from './NewConversationModal';
 import { ConversationSummary } from '@chat-app/shared';
 
 interface SidebarProps {
@@ -15,6 +16,7 @@ export function Sidebar({ activeConversationId, onSelect }: SidebarProps) {
   const { onlineStatus } = useOnlineStatus();
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [search, setSearch] = useState('');
+  const [showNewConversation, setShowNewConversation] = useState(false);
 
   const currentUser = (() => {
     try {
@@ -26,6 +28,11 @@ export function Sidebar({ activeConversationId, onSelect }: SidebarProps) {
 
   useEffect(() => {
     if (!socket) return;
+
+    // Load existing conversations on connect
+    socket.emit('conversation:list', (convs: ConversationSummary[]) => {
+      setConversations(convs);
+    });
 
     function onConversationNew(conv: ConversationSummary) {
       setConversations((prev) => {
@@ -59,7 +66,16 @@ export function Sidebar({ activeConversationId, onSelect }: SidebarProps) {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Messages</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-gray-800">Messages</h2>
+          <button
+            onClick={() => setShowNewConversation(true)}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600 transition text-lg leading-none"
+            title="New conversation"
+          >
+            +
+          </button>
+        </div>
         <input
           type="text"
           placeholder="Search conversations..."
@@ -112,6 +128,10 @@ export function Sidebar({ activeConversationId, onSelect }: SidebarProps) {
           );
         })}
       </div>
+
+      {showNewConversation && (
+        <NewConversationModal onClose={() => setShowNewConversation(false)} />
+      )}
     </div>
   );
 }

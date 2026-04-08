@@ -15,6 +15,11 @@ export function useMessages(conversationId: string | null) {
 
     socket.emit('conversation:join', { conversationId });
 
+    // Load message history
+    socket.emit('message:history', { conversationId }, (history: MessagePayload[]) => {
+      setMessages(history);
+    });
+
     function onNewMessage(msg: MessagePayload) {
       setMessages((prev) => [...prev, msg]);
       // Mark as read immediately when message arrives in active chat
